@@ -9,7 +9,7 @@ import click
 
 from logging import getLogger, StreamHandler, Formatter, DEBUG, INFO, WARN
 logger = getLogger(__name__)
-logger.setLevel(DEBUG)
+logger.setLevel(INFO)
 handler = StreamHandler()
 handler.setLevel(DEBUG)
 handler_fmt = Formatter('%(asctime)s %(levelname)s %(name)s:%(funcName)s> %(message)s',
@@ -17,10 +17,22 @@ handler_fmt = Formatter('%(asctime)s %(levelname)s %(name)s:%(funcName)s> %(mess
 handler.setFormatter(handler_fmt)
 logger.addHandler(handler)
 logger.propagate = False
+def get_logger(name, debug=False):
+    l = logger.getChild(name)
+    if debug:
+        l.setLevel(DEBUG)
+    else:
+        l.setLevel(INFO)
+
+    return l
+
+#####
+SHT31_ADDR = 0x45
 
 #####
 class SHT31:
-    '''SHT31
+    '''
+    SHT31
 
     Simple usage:
 
@@ -29,8 +41,8 @@ class SHT31:
        print('%.2f C'  % obj.temp)
        print('%.2f %%' % obj.humidity)
     '''
-    def __init__(self, i2c_bus=1, addr=0x45):
-        self.logger = logger.getChild(__class__.__name__)
+    def __init__(self, i2c_bus=1, addr=SHT31_ADDR, debug=False):
+        self.logger = get_logger(__class__.__name__, debug)
         self.logger.debug('i2c_bus=%d, addr=0x%02X', i2c_bus, addr)
         
         self.i2c_bus = 1
@@ -68,6 +80,27 @@ class SHT31:
         return round(humidity, 1)
     
 #####
+class app:
+    def __init__(self, bus, addr_str, debug=False):
+        self.logger = get_logger(__class__.__name__, debug)
+        self.logger.debug('bus=%d, addr_str=\'%s\'', bus, addr_str)
+
+        if addr_str[:2] != '0x':
+            self.logger.error('%s is not a valid hex value', addr_str)
+            return
+        
+        addr = int(addr_str[2:], 16)
+        self.logger.debug('addr=0x%02X', addr)
+
+        self.obj = SHT31(bus, addr, debug=debug)
+
+    def main(self):
+        if self.obj.measure():
+            print('%.1f C, %.1f %%' % (self.obj.temp, self.obj.humidity))
+        else:
+            self.logger.error('Error:(%d:%02X)', bus, addr_val)
+            
+#####
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--bus', '-b', 'bus', type=int, default=1,
@@ -77,23 +110,11 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--debug', '-d', 'debug', is_flag=True, default=False,
               help='debug flag')
 def main(bus, addr, debug):
-    logger.setLevel(INFO)
     if debug:
         logger.setLevel(DEBUG)
-
     logger.debug('bus=%d, addr=%s', bus, addr)
 
-    if addr[:2] != '0x':
-        logger.error('%s is not a valid hex value', addr)
-        return
-    addr_val = int(addr[2:], 16)
-    logger.debug('addr_val=0x%02X', addr_val)
-    
-    obj = SHT31(bus, addr_val)
-    if obj.measure():
-        print('%.1f C, %.1f %%' % (obj.temp, obj.humidity))
-    else:
-        logger.error('Error(%d:%02X)', bus, addr_val)
+    app(bus, addr, debug=debug).main()
 
 if __name__ == '__main__':
     main()
