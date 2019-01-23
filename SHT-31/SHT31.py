@@ -54,7 +54,7 @@ class SHT31:
         try:
             i2c = smbus.SMBus(self.i2c_bus)
             i2c.write_byte_data(self.addr, 0x24, 0x00)	# 単発測定
-            time.sleep(0.02)				# >= 0.012 (12ms)
+            time.sleep(0.03)				# >= 0.012 (12ms)
             data = i2c.read_i2c_block_data(self.addr, 0x00, 6)
             i2c.close()
         except Exception as e:
