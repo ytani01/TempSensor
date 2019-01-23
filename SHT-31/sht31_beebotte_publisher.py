@@ -23,7 +23,6 @@ def get_logger(name, debug=False):
         l.setLevel(DEBUG)
     else:
         l.setLevel(INFO)
-
     return l
 
 #####
@@ -32,13 +31,13 @@ HOSTNAME 	= 'api.beebotte.com'
 SHT31_ADDR	= '0x45'
 
 DEF_OUTFILE	= 'sht31.txt'
-DEF_INTERVAL	= 3600  # sec
+DEF_INTERVAL	= 120  # sec
 
 #####
 class app:
-    DIFF_TEMP     = 0.5
-    DIFF_HUMIDITY = 1.5
-    LOOP_INTERVAL = 10
+    DIFF_TEMP     = 1	# ℃
+    DIFF_HUMIDITY = 3	# %
+    LOOP_INTERVAL = 10	# sec
     
     def __init__(self, bus, addr_str, token_str, ch_name, interval, outfile,
                  debug=False):
@@ -84,7 +83,7 @@ class app:
 
             ts_now = time.time()
             ts_str = time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(ts_now))
-            if ts_now - prev['sec'] > self.interval:
+            if ts_now - prev['sec'] >= self.interval:
                 update_mark['time'] = '*'
             out_str =  '%d %s%s '  % (ts_now, update_mark['time'], ts_str)
 
