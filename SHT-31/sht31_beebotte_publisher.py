@@ -35,8 +35,7 @@ DEF_INTERVAL	= 120  # sec
 
 #####
 class app:
-    DIFF_TEMP     = 1	# ℃
-    DIFF_HUMIDITY = 3	# %
+    DIFF_HUMIDITY = 5	# %
     LOOP_INTERVAL = 10	# sec
     
     def __init__(self, bus, addr_str, token_str, ch_name, interval, outfile,
