@@ -31,7 +31,8 @@ def get_logger(name, debug=False):
 #####
 class SHT31_OLED:
     def __init__(self, bus, addr_str, server, port, oled_part, debug=False):
-        self.logger = get_logger(__class__.__name__, debug)
+        self.debug = debug
+        self.logger = get_logger(__class__.__name__, self.debug)
         self.logger.debug('bus=%d, addr_str=\'%s\'', bus, addr_str)
 
         if addr_str[:2] != '0x':
@@ -41,19 +42,23 @@ class SHT31_OLED:
         addr = int(addr_str[2:], 16)
         self.logger.debug('addr=0x%02X', addr)
 
-        self.sensor = SHT31(bus, addr, debug=debug)
-        self.oc = OledClient()
-        self.oc.open(server, port)
-        self.oc.part(oled_part)
-        self.oc.zenkaku(True)
-        self.oc.crlf(True)
+        self.sensor    = SHT31(bus, addr, debug=self.debug)
+        self.server    = server
+        self.port      = port
+        self.oled_part = oled_part
+
 
     def out_oled(self):
         if self.sensor.measure():
             out_str = '%.1f C, %.1f %%' % (self.sensor.temp,
                                            self.sensor.humidity)
             self.logger.debug('%s', out_str)
-            self.oc.send(out_str)
+
+            with OledClient(self.server, self.port, debug=self.debug) as oc:
+                oc.part(self.oled_part)
+                oc.zenkaku(True)
+                oc.crlf(True)
+                oc.send(out_str)
         else:
             self.logger.error('Error:(%d:%02X)', bus, addr_val)
 
