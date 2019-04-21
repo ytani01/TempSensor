@@ -147,15 +147,20 @@ class BME280I2C:
 
     # Measure T/P/H
     def meas(self):
-        if not self.id_read():
-            return False
-        self.read_cal()
-        self.forced()
-        self.comp_T()
-        self.comp_P()
-        self.comp_H()
-        return True
-        
+        while True:
+            try:
+                if not self.id_read():
+                    return False
+                self.read_cal()
+                self.forced()
+                self.comp_T()
+                self.comp_P()
+                self.comp_H()
+                return True
+            except OSError as e:
+                print('%s: %s' % (type(e), e))
+                time.sleep(0.1)
+            
     def print_reg(self):
         print( ' t_fine : {}'.format(self.t_fine))
         print( ' adc_T  : {}'.format(self.adc_T))
@@ -171,19 +176,20 @@ def main():
     bme280ch1 = BME280I2C(0x76)
     bme280ch2 = BME280I2C(0x77)
 
-    if bme280ch1.meas():
-        print('BME280 0x76')
-        bme280ch1.print_cal()
-        bme280ch1.print_reg()
-        bme280ch1.print_meas()
+    while True:
+        if bme280ch1.meas():
+            print('BME280 0x76')
+            bme280ch1.print_cal()
+            bme280ch1.print_reg()
+            bme280ch1.print_meas()
 
-    if bme280ch2.meas():
-        print('BME280 0x77')
-        bme280ch2.print_cal()
-        bme280ch2.print_reg()
-        bme280ch2.print_meas()
+        if bme280ch2.meas():
+            print('BME280 0x77')
+            bme280ch2.print_cal()
+            bme280ch2.print_reg()
+            bme280ch2.print_meas()
+
+        time.sleep(3)
 
 if __name__ == '__main__':
     main()
-
-
