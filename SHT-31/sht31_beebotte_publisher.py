@@ -35,7 +35,7 @@ DEF_INTERVAL	= 180  # sec
 
 #####
 class app:
-    DIFF_TEMP     = 1	# Celsius
+    DIFF_TEMP     = 0.3	# Celsius
     DIFF_HUMIDITY = 2	# %
     LOOP_INTERVAL = 10	# sec
     
