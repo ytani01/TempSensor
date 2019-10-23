@@ -70,7 +70,7 @@ class SHT31:
         val = (data1 << 8) | data2
         temp = -45 + 175 * val / 65535
         self.logger.debug('val = 0x%04X = %d, temp=%f', val, val, temp)
-        return round(temp, 1)
+        return round(temp, 2)
 
     def calc_humidity(self, data1, data2):
         self.logger.debug('0x%02X, 0x%02X', data1, data2)

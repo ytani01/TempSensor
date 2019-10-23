@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 #
+# (C) 2019 Yoichi Tanibayashi
+#
 import sys
 import time
 from SHT31 import SHT31
@@ -31,13 +33,13 @@ HOSTNAME 	= 'api.beebotte.com'
 SHT31_ADDR	= '0x45'
 
 DEF_OUTFILE	= 'sht31.txt'
-DEF_INTERVAL	= 180  # sec
+DEF_INTERVAL	= 30  # sec
 
 #####
 class app:
-    DIFF_TEMP     = 0.3	# Celsius
+    DIFF_TEMP     = 0.03	# Celsius
     DIFF_HUMIDITY = 2	# %
-    LOOP_INTERVAL = 10	# sec
+    LOOP_INTERVAL = 5	# sec
     
     def __init__(self, bus, addr_str, token_str, ch_name, interval, outfile,
                  debug=False):
@@ -87,10 +89,12 @@ class app:
                 update_mark['time'] = '*'
             out_str =  '%d %s%s '  % (ts_now, update_mark['time'], ts_str)
 
+            self.logger.debug('%s %.2f C', out_str, self.sht31.temp)
+
             if abs(self.sht31.temp - prev['temp']) \
                >= self.DIFF_TEMP:
                 update_mark['temp'] = '*'
-            out_str += '%s%.1f C ' % (update_mark['temp'], self.sht31.temp)
+            out_str += '%s%.2f C ' % (update_mark['temp'], self.sht31.temp)
 
             if abs(self.sht31.humidity - prev['humidity']) \
                >= self.DIFF_HUMIDITY:
@@ -100,9 +104,15 @@ class app:
             print(out_str)
 
             if '*' in update_mark.values():
+                '''
                 self.bbt.write(self.ch_name, "temp",
-                               float('%.1f' % self.sht31.temp))
+                               float('%.2f' % self.sht31.temp))
                 self.bbt.write(self.ch_name, "humidity",
+                               float('%.1f' % self.sht31.humidity))
+                '''
+                self.bbt.publish(self.ch_name, "temp",
+                               float('%.2f' % self.sht31.temp))
+                self.bbt.publish(self.ch_name, "humidity",
                                float('%.1f' % self.sht31.humidity))
 
                 prev['temp']     = self.sht31.temp
