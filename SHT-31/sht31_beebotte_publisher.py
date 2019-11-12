@@ -5,67 +5,47 @@
 import sys
 import time
 from SHT31 import SHT31
-from beebotte import *
-
-import click
-
-from logging import getLogger, StreamHandler, Formatter, DEBUG, INFO, WARN
-logger = getLogger(__name__)
-logger.setLevel(INFO)
-handler = StreamHandler()
-handler.setLevel(DEBUG)
-handler_fmt = Formatter('%(asctime)s %(levelname)s %(name)s:%(funcName)s> %(message)s',
-                        datefmt='%H:%M:%S')
-handler.setFormatter(handler_fmt)
-logger.addHandler(handler)
-logger.propagate = False
-def get_logger(name, debug=False):
-    l = logger.getChild(name)
-    if debug:
-        l.setLevel(DEBUG)
-    else:
-        l.setLevel(INFO)
-    return l
+from beebotte import BBT
+from MyLogger import get_logger
 
 #####
-MYNAME		= sys.argv[0]
-HOSTNAME 	= 'api.beebotte.com'
-SHT31_ADDR	= '0x45'
+MYNAME       = sys.argv[0]
+HOSTNAME     = 'api.beebotte.com'
+SHT31_ADDR   = '0x45'
+DEF_OUTFILE  = 'sht31.txt'
+DEF_INTERVAL = 30  # sec
 
-DEF_OUTFILE	= 'sht31.txt'
-DEF_INTERVAL	= 30  # sec
 
 #####
-class app:
-    DIFF_TEMP     = 0.03	# Celsius
-    DIFF_HUMIDITY = 2	# %
-    LOOP_INTERVAL = 5	# sec
-    
+class App:
+    DIFF_TEMP     = 0.03  # Celsius
+    DIFF_HUMIDITY = 2     # %
+    LOOP_INTERVAL = 5     # sec
+
     def __init__(self, bus, addr_str, token_str, ch_name, interval, outfile,
                  debug=False):
         self.logger = get_logger(__class__.__name__, debug)
 
-        self.logger.debug('bus      : %d', bus)
-        self.logger.debug('addr_str : \'%s\'', addr_str)
-        self.logger.debug('token_str: %s', token_str)
-        self.logger.debug('token_str: %s', token_str)
-        self.logger.debug('ch_name  : %s', ch_name)
-        self.logger.debug('interval : %d', interval)
-        self.logger.debug('outfile  : %s', outfile)
+        self.logger.debug('bus      =%d',     bus)
+        self.logger.debug('addr_str =\'%s\'', addr_str)
+        self.logger.debug('token_str=\'%s\'', token_str)
+        self.logger.debug('ch_name  =\'%s\'', ch_name)
+        self.logger.debug('interval =%d',     interval)
+        self.logger.debug('outfile  =\'%s\'', outfile)
 
         self.bus       = bus
-        
+
         if addr_str[:2] != '0x':
-            self.logger.error('%s is not a valid hex value', addr_str)
+            self.logger.error('%s: invalid hex strings', addr_str)
             return None
         self.addr      = int(addr_str[2:], 16)
-        
+
         self.token_str = token_str
         self.ch_name   = ch_name
         self.interval  = interval
         self.outfile   = outfile
-        
-        self.bbt = BBT(token=token_str, hostname=HOSTNAME)
+
+        self.bbt   = BBT(token=token_str, hostname=HOSTNAME)
         self.sht31 = SHT31(self.bus, self.addr, debug=debug)
 
     def main(self):
@@ -81,13 +61,13 @@ class app:
 
             update_mark = {'temp'    : ' ',
                            'humidity': ' ',
-                           'time'    : ' ' }
+                           'time'    : ' '}
 
             ts_now = time.time()
             ts_str = time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(ts_now))
             if ts_now - prev['sec'] >= self.interval:
                 update_mark['time'] = '*'
-            out_str =  '%d %s%s '  % (ts_now, update_mark['time'], ts_str)
+            out_str = '%d %s%s '  % (ts_now * 1000, update_mark['time'], ts_str)
 
             self.logger.debug('%s %.2f C', out_str, self.sht31.temp)
 
@@ -111,9 +91,9 @@ class app:
                                float('%.1f' % self.sht31.humidity))
                 '''
                 self.bbt.publish(self.ch_name, "temp",
-                               float('%.2f' % self.sht31.temp))
+                                 float('%.2f' % self.sht31.temp))
                 self.bbt.publish(self.ch_name, "humidity",
-                               float('%.1f' % self.sht31.humidity))
+                                 float('%.1f' % self.sht31.humidity))
 
                 prev['temp']     = self.sht31.temp
                 prev['humidity'] = self.sht31.humidity
@@ -123,13 +103,17 @@ class app:
                     f.write(out_str + '\n')
 
             time.sleep(self.LOOP_INTERVAL)
-        
+
+
 #####
+import click
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-@click.command(context_settings=CONTEXT_SETTINGS, 
+
+
+@click.command(context_settings=CONTEXT_SETTINGS,
                help='SHT-31 MQTT publisher (temp, humidity)')
 @click.argument('token_str', default='')
-@click.argument('ch_name'  , default='')
+@click.argument('ch_name',   default='')
 @click.option('--bus', '-b', 'i2cbus', type=int, default=1,
               help='I2C bus')
 @click.option('--addr', '-a', 'i2caddr', type=str, default=SHT31_ADDR,
@@ -142,16 +126,15 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--debug', '-d', 'debug', is_flag=True, default=False,
               help='debug flag')
 def main(i2cbus, i2caddr, token_str, ch_name, interval, outfile, debug):
-    if debug:
-        logger.setLevel(DEBUG)
-        
-    logger.debug('token_str: %s', token_str)
-    logger.debug('ch_name  : %s', ch_name)
-    logger.debug('interval : %d', interval)
-    logger.debug('outfile  : %s', outfile)
+    logger = get_logger(__name__, debug)
+    logger.debug('token_str=%s', token_str)
+    logger.debug('ch_name  =%s', ch_name)
+    logger.debug('interval =%d', interval)
+    logger.debug('outfile  =%s', outfile)
 
-    app(i2cbus, i2caddr, token_str, ch_name, interval, outfile,
+    App(i2cbus, i2caddr, token_str, ch_name, interval, outfile,
         debug=debug).main()
-            
+
+
 if __name__ == '__main__':
     main()
