@@ -6,7 +6,6 @@
 MyLogger.py
 
 Usage:
-
 --
 from MyLogger import get_logger
 

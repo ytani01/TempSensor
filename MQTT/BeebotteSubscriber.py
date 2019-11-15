@@ -39,12 +39,10 @@ class App:
 
         self.subscriber.start()
         
-        """
         msg_type, msg_data = self.subscriber.wait_connect(timeout=3)
         if msg_type != self.subscriber.MSG_CONNECT:
             print('Connect failed:%s:%s' % (msg_type, msg_data))
             return
-        """
         
         while True:
             msg_type, msg_data = self.subscriber.get()

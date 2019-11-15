@@ -53,6 +53,8 @@ class MqttSubscriber(threading.Thread):
         self.mqtt_client.on_disconnect = self.on_disconnect
         self.mqtt_client.on_message = self.on_message
 
+        self.connection = False
+
         super().__init__()
         self.daemon = True
 
@@ -60,18 +62,21 @@ class MqttSubscriber(threading.Thread):
         self.logger.debug('')
 
         self.mqtt_client.username_pw_set(self.user, password=self.password)
+            
         try:
             self.mqtt_client.connect(self.svr_host, self.svr_port,
                                      keepalive=60)
         except Exception as e:
-            msg_data = 'connect():%s:%s' % (type(e), e)
+            msg_data = 'connect(): %s:%s' % (type(e), e)
+            self.logger.error(msg_data)
             self.put(self.MSG_ERR, msg_data)
             return
 
         try:
             self.mqtt_client.loop_forever()
         except Exception as e:
-            msg_data = 'loop_forever():%s:%s' % (type(e), e)
+            msg_data = 'loop_forever(): %s:%s' % (type(e), e)
+            self.logger.error(msg_data)
             self.put(self.MSG_ERR, msg_data)
 
     def end(self):
@@ -104,17 +109,20 @@ class MqttSubscriber(threading.Thread):
         self.logger.debug('userdata=%s, flag=%s, rc=%s', userdata, flag, rc)
 
         if rc != 0:
-            self.put(self.MSG_ERR, 'connect:rc=' + str(rc))
+            self.put(self.MSG_ERR, 'on_connect():rc=' + str(rc))
             return
 
         for t in self.topic:
             self.logger.debug('t=%s', t)
             client.subscribe(t, qos=self.DEF_QOS)
 
+        self.connection = True
         self.put(self.MSG_CONNECT, 'connected(' + str(rc) + ')')
 
     def on_disconnect(self, client, userdata, rc):
         self.logger.debug('userdata=%s, rc=%s', userdata, rc)
+
+        self.connection = False
         self.put(self.MSG_DISCONNECT, 'disconnected(' + str(rc) + ')')
 
     def on_message(self, client, userdata, msg):
@@ -145,13 +153,12 @@ class MqttSubscriber(threading.Thread):
         self.put(self.MSG_DATA, msg_data)
 
     def on_log(self, client, userdata, level, buf):
-        self.logger.debug('userdata=%s, level=%s, buf=%s',
+        self.logger.debug('userdata=%s, level=%d, buf=%s',
                           userdata, level, buf)
 
-        # if level <= self.mqtt_client.MQTT_LOG_WARNING:
-        if level <= self.mqtt.MQTT_LOG_DEBUG:
-            msg_data = 'level=%d, buf=%s' % level, buf
-            self.logger.warn(msg_data)
+        if level <= mqtt.MQTT_LOG_WARNING:
+            msg_data = 'level=%d, buf=%s' % (level, buf)
+            self.logger.warning(msg_data)
             self.put(self.MSG_ERR, msg_data)
 
     def wait_connect(self, timeout=10):
@@ -172,6 +179,7 @@ class MqttSubscriber(threading.Thread):
                                 time.localtime(ts_msec/1000))
         return datestr
 
+
 class App:
     def __init__(self, host, port, topic, user, pw, debug=False):
         self.debug = debug
@@ -190,8 +198,7 @@ class App:
 
         # wait connection
         msg_type, msg_data = self.subscriber.wait_connect(timeout=5)
-        self.logger.debug('msg_type=%s, msg_data=%s',
-                          msg_type, msg_data)
+        self.logger.debug('msg_type=%s, msg_data=%s', msg_type, msg_data)
         if msg_type != self.subscriber.MSG_CONNECT:
             print('Connect failed:%s:%s' % (msg_type, msg_data))
             return
