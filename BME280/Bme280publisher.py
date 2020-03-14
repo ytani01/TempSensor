@@ -56,9 +56,9 @@ class App:
             msg = '%.2f C   %.1f %%' % (t, h)
             self._log.debug('msg=%s', msg)
 
-            self._bbt.send_data(t, 'env2/temperature')
-            self._bbt.send_data(h, 'env2/humidity')
-            self._bbt.send_data(msg, self._topic_msg)
+            self._bbt.send_data(t, ['env2/temperature'])
+            self._bbt.send_data(h, ['env2/humidity'])
+            self._bbt.send_data(msg, [self._topic_msg])
 
             time.sleep(5)
 
