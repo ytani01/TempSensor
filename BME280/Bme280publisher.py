@@ -5,7 +5,7 @@
 __authoer__ = 'Yoichi Tanibayashi'
 __data__    = '2020'
 
-from MqttClientServer import BeebottePublisher, BeebotteSubscriber
+from Mqtt import BeebottePublisher, BeebotteSubscriber
 from BME280I2C import BME280I2C
 import time
 from MyLogger import get_logger
@@ -21,9 +21,10 @@ class App:
         self._log.debug('channel=%s, token=%s', channel, token)
 
         self._bme280 = BME280I2C(i2c_addr)
-        self._bbt= BeebottePublisher(channel + '/data1',
-                                     token, debug=self._dbg)
-        self._bbt_mon = BeebotteSubscriber(self.monitor, [channel + '/data1'],
+        self._topic_msg = channel + '/data1'
+        self._bbt = BeebottePublisher(token, debug=self._dbg)
+        self._bbt_mon = BeebotteSubscriber(self.monitor,
+                                           [ self._topic_msg ],
                                            token, debug=self._dbg)
 
         self._t_hist = []
@@ -34,7 +35,7 @@ class App:
 
         self._bbt.start()
         self._bbt_mon.start()
-        
+
         while self._bme280.meas():
             t0 = self._bme280.T
             h0 = self._bme280.H
@@ -43,7 +44,6 @@ class App:
             if len(self._t_hist) > 5:
                 self._t_hist.pop(0)
             print('t_hist=%s' % (self._t_hist))
-            
 
             if len(self._h_hist) > 5:
                 self._h_hist.pop(0)
@@ -52,24 +52,25 @@ class App:
 
             t = self.ave(self._t_hist)
             h = self.ave(self._h_hist)
-            
+
             msg = '%.2f C   %.1f %%' % (t, h)
             self._log.debug('msg=%s', msg)
 
             self._bbt.send_data(t, 'env2/temperature')
             self._bbt.send_data(h, 'env2/humidity')
-            self._bbt.send_data(msg, 'env2/data1')
+            self._bbt.send_data(msg, self._topic_msg)
 
             time.sleep(5)
 
     def end(self):
         self._log.debug('')
 
-    def monitor(self, data, ts):
-        print('%s   %s' % (self._bbt_mon.ts2datestr(ts), data))
+    def monitor(self, data, topic, ts):
+        print('%s[%s]   %s' % (self._bbt_mon.ts2datestr(ts), topic, data))
 
     def ave(self, list):
         return sum(list) / len(list)
+
 
 @click.command(context_settings=CONTEXT_SETTINGS, help='''
 BME280 ==>[MQTT]==> Beebotte
@@ -90,8 +91,7 @@ def main(i2c_addr, channel, token, debug):
     finally:
         app.end()
         log.info('done')
-        
+
 
 if __name__ == '__main__':
     main()
-        
