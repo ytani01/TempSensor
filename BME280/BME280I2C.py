@@ -168,9 +168,10 @@ class BME280I2C:
         print( ' adc_H  : {}'.format(self.adc_H))
     
     def print_meas(self):
-        print( ' Temp     : {:.1f}C'.format(self.T))
-        print( ' Pressure : {:.1f}hPa'.format(self.P))
-        print( ' Humidity : {:.1f}%'.format(self.H))
+        print(' Temp     : %s C' % self.T)
+        print(' Pressure : %s hPa' % self.P)
+        print(' Humidity : %s %%' % self.H)
+
 
 def main():
     bme280ch1 = BME280I2C(0x76)

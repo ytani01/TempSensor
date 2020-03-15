@@ -1,0 +1,40 @@
+# Edit this file to introduce tasks to be run by cron.
+# 
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+# 
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').# 
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+# 
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+# 
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+# 
+# For more information see the manual pages of crontab(5) and cron(8)
+# 
+# m h  dom mon dow   command
+
+BINDIR=/home/pi/bin
+PUBLISHER=sht31_beebotte_publisher.sh
+ENVOUT=/home/pi/tmp/env.txt
+
+ACTIVATE_EXE=/home/pi/bin/activate_exec.sh
+BME280VENV=/home/pi/bin/env2-temp
+BME280PUB=/home/pi/env2-temp/TempSensor/BME280/Bme280publisher.py
+BME280OPT="0x76 env2 token_fAgsMSNhR9hCJOKm -i 2 -dt 0.05 -ot -0.3"
+BME280LOG=/home/pi/tmp/bme280.log
+
+LOGDIR=/home/pi/tmp
+
+@reboot		${BINDIR}/boot.sh > /dev/null 2>&1 &
+#@reboot		sleep 20; ${BINDIR}/clear_outfile.sh ${ENVOUT}; ${BINDIR}/bme280_beebotte_publisher.py token_piijGYlVSlBOv8Hu home_env -o ${ENVOUT} &
+@reboot		sleep 10; ${BINDIR}/clear_outfile.sh
+@reboot		sleep 20; ${BINDIR}/${PUBLISHER} > ${LOGDIR}/publisher.log 2>&1 &
+@reboot		sleep 20; ${ACTIVATE_EXE} ${BME280ENV} ${BME280PUB} ${BME280OPT} > ${BME280LOG} 2>&1 &
