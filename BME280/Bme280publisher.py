@@ -21,7 +21,8 @@ class App:
         self._log = get_logger(__class__.__name__, self._dbg)
         self._log.debug('i2c_addr=%s', i2c_addr)
         self._log.debug('channel=%s, token=%s', channel, token)
-        self._log.debug('interval=%s, ave_n=%s, count=%s', interval, count, ave_n)
+        self._log.debug('interval=%s, ave_n=%s, count=%s',
+                        interval, count, ave_n)
         self._log.debug('diff_t=%s, diff_h=%s', diff_t, diff_h)
         self._log.debug('offset_t=%s, offset_h=%s', offset_t, offset_h)
 
@@ -88,15 +89,15 @@ class App:
                abs(h - self._prev_h) >= self._diff_h:
 
                 self._i = 0
-                
+
                 self._prev_t = t
                 self._prev_h = h
                 self._log.debug('perv_t=%s, prev_h=%s',
                                 self._prev_t, self._prev_h)
 
-                self._bbt_pub.send_data(t, [ self._topic_t ])
-                self._bbt_pub.send_data(h, [ self._topic_h ])
-                self._bbt_mon.send_data(mon_data, [ self._topic_mon ])
+                self._bbt_pub.send_data(t, [ self._topic_t])
+                self._bbt_pub.send_data(h, [ self._topic_h])
+                self._bbt_mon.send_data(mon_data, [ self._topic_mon])
 
             time.sleep(self._interval)
 

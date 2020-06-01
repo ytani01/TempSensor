@@ -5,7 +5,7 @@ BME280 Control Module via I2C
  2017/10/22
 """
 
-import smbus
+import smbus2 as smbus
 import time
 
 class BME280I2C:
