@@ -50,17 +50,25 @@ class App:
         self._t_hist = []
         self._h_hist = []
 
-        self._prev_t = -100
-        self._prev_h = -100
+        self._reported_t = -100
+        self._reported_h = -100
         self._i = 0
 
+        self.up_down = 0
+
     def main(self):
+        """
+        """
         self._log.debug('')
 
         self._bbt_mon.start()
         time.sleep(1)
         self._bbt_pub.start()
 
+        t = 0
+        prev_t = 0
+        updown_t = 0
+        prev_updown_t = 0
         while self._bme280.meas():
             t0 = self._bme280.T + self._offset_t
             h0 = self._bme280.H + self._offset_h
@@ -75,25 +83,34 @@ class App:
                 self._h_hist.pop(0)
             self._log.debug('h_hist=%s', self._h_hist)
 
+            prev_t = t
             t = self.ave(self._t_hist)
             h = self.ave(self._h_hist)
+
+            if t != prev_t:
+                prev_updown_t = updown_t
+                updown_t = (t - prev_t) / abs(t-prev_t)
+                self._log.debug('updown_t=%d, prev_updown_t=%d',
+                                updown_t, prev_updown_t)
 
             mon_data = '%.2f C   %.1f %%' % (t, h)
 
             self._i += 1
-            self._log.info('[%2d/%2d] %.2f C : %.2f C , %.1f %% : %.1f %%',
+            self._log.info('[%2d/%2d] %.3f C (%+d) : %.3f C , %.1f %% : %.1f %%',
                            self._i, self._count,
-                           t, self._prev_t, h, self._prev_h)
+                           t, updown_t, self._reported_t,
+                           h, self._reported_h)
             if self._i >= self._count or \
-               abs(t - self._prev_t) >= self._diff_t or \
-               abs(h - self._prev_h) >= self._diff_h:
+               abs(t - self._reported_t) >= self._diff_t or \
+               abs(h - self._reported_h) >= self._diff_h or \
+               updown_t * prev_updown_t < 0:
 
                 self._i = 0
 
-                self._prev_t = t
-                self._prev_h = h
-                self._log.debug('perv_t=%s, prev_h=%s',
-                                self._prev_t, self._prev_h)
+                self._reported_t = t
+                self._reported_h = h
+                self._log.debug('reported_t=%s, reported_h=%s',
+                                self._reported_t, self._reported_h)
 
                 self._bbt_pub.send_data(t, [ self._topic_t])
                 self._bbt_pub.send_data(h, [ self._topic_h])
