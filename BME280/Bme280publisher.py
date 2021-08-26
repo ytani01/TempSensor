@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 #
-# (c) 2020 Yoichi Tanibayashi
+# (c) 2020,2021 Yoichi Tanibayashi
 #
 __authoer__ = 'Yoichi Tanibayashi'
-__data__    = '2020'
+__data__    = '2021/08'
+__version__ = '0.1.0'
 
 from Mqtt import BeebottePublisher, BeebotteSubscriber
 from BME280I2C import BME280I2C
@@ -93,28 +94,29 @@ class App:
                 self._log.debug('updown_t=%d, prev_updown_t=%d',
                                 updown_t, prev_updown_t)
 
-                mon_data = '%.2f C   %.1f %%' % (t, h)
+            mon_data = '%.2f C   %.1f %%' % (t, h)
 
-                self._i += 1
-                self._log.info('[%2d/%2d] %.3f C (%+d) : %.3f C , %.1f %% : %.1f %%',
-                               self._i, self._count,
-                               t, updown_t, self._reported_t,
-                               h, self._reported_h)
-                if self._i >= self._count or \
-                   abs(t - self._reported_t) >= self._diff_t or \
-                   abs(h - self._reported_h) >= self._diff_h or \
-                   updown_t * prev_updown_t < 0:
+            self._i += 1
+            self._log.info('[%2d/%2d] %.3f C (%+d) : %.3f C , %.1f %% : %.1f %%',
+                           self._i, self._count,
+                           t, updown_t, self._reported_t,
+                           h, self._reported_h)
+            if self._i >= self._count or \
+               abs(t - self._reported_t) >= self._diff_t or \
+               abs(h - self._reported_h) >= self._diff_h or \
+               updown_t * prev_updown_t < 0:
 
-                    self._i = 0
+                if ("%.2f" % t) != ("%.2f" % self._reported_t):
+                    self._bbt_pub.send_data(t, [ self._topic_t])
+                    self._bbt_pub.send_data(h, [ self._topic_h])
+                    self._bbt_mon.send_data(mon_data, [ self._topic_mon])
 
                     self._reported_t = t
                     self._reported_h = h
                     self._log.debug('reported_t=%s, reported_h=%s',
                                     self._reported_t, self._reported_h)
 
-                    self._bbt_pub.send_data(t, [ self._topic_t])
-                    self._bbt_pub.send_data(h, [ self._topic_h])
-                    self._bbt_mon.send_data(mon_data, [ self._topic_mon])
+                    self._i = 0
 
             time.sleep(self._interval)
 
