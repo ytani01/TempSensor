@@ -106,7 +106,7 @@ class App:
                abs(h - self._reported_h) >= self._diff_h or \
                updown_t * prev_updown_t < 0:
 
-                if ("%.2f" % t) != ("%.2f" % self._reported_t):
+                # if ("%.2f" % t) != ("%.2f" % self._reported_t):
                     self._bbt_pub.send_data(t, [ self._topic_t])
                     self._bbt_pub.send_data(h, [ self._topic_h])
                     self._bbt_mon.send_data(mon_data, [ self._topic_mon])
