@@ -113,7 +113,7 @@ if [ ! -d ${VENVDIR} ]; then
 fi
 shift
 
-APPSUBDIR="TempSensor/BME280"
+APPSUBDIR="TempSensor/BME280/RaspberryPi"
 CMD="Bme280publisher.py"
 ARGS=$*
 
