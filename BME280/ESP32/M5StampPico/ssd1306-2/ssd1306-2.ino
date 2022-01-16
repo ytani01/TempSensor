@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
+#include "Adc1.h"
 
 const int OLED_W = 128;
 const int OLED_H = 64;
@@ -12,6 +13,9 @@ Adafruit_SSD1306 disp(OLED_W, OLED_H, &Wire, -1);
 
 const uint8_t I2CADDR_BME280 = 0x76;
 Adafruit_BME280 bme;
+
+const adc1_channel_t ADC_CH = ADC1_CHANNEL_0;
+Adc1 *adc1;
 
 const uint8_t PIN_ADC = 36;
 const float VOL_FACTOR = 2.0;
@@ -33,12 +37,14 @@ void setup() {
 
   bme.begin(I2CADDR_BME280);
   bme.setSampling(Adafruit_BME280::MODE_FORCED);  // !! IMPORTANT !!
+
+  adc1 = new Adc1(ADC_CH, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_9);
 } // setup()
 
 void loop() {
-  int v1 = analogRead(PIN_ADC);
-  float vol = v1 * V_BASE * VOL_FACTOR / ADC_MAX;
-  Serial.printf("%.2fV(%d) ", vol, v1);
+  int v1 = adc1->get();
+  float vol = v1 * V_BASE * VOL_FACTOR / adc1->max_val;
+  Serial.printf("%.2fV(%d/%d) ", vol, v1, adc1->max_val);
   
   bme.begin(I2CADDR_BME280);
   bme.setSampling(Adafruit_BME280::MODE_FORCED);  // !! IMPORTANT !!
