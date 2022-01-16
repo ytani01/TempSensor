@@ -1,6 +1,8 @@
 # SHT-31
 SHT-31 sensor
 
+http://akizukidenshi.com/catalog/g/gK-12125/
+
 # Appendix
 
 ## A1. /boot/config.txt を使う方法
