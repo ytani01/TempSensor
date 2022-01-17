@@ -7,6 +7,8 @@
 #include <Adafruit_GFX.h>
 #include "Adc1.h"
 
+const int DELAY_MSEC = 2000;
+
 // OLED
 const int OLED_W = 128;
 const int OLED_H = 64;
@@ -48,6 +50,9 @@ void setup() {
     Serial.println("SSD1306: init failed");
     while (true) {}
   }
+  // disp.ssd1306_command(SSD1306_SETCONTRAST);
+  // disp.ssd1306_command(0x8F); // デフォルト
+  // disp.dim(true); // 少し暗くなる
 
   bme.begin(I2CADDR_BME280);
   bme.setSampling(Adafruit_BME280::MODE_FORCED);  // !! IMPORTANT !!
@@ -83,7 +88,7 @@ void loop() {
   disp.setCursor(0, 0);
 
   disp.setTextSize(2);
-  disp.printf("%4.1f", temp);
+  disp.printf(" %4.1f", temp);
   disp.setTextSize(1);
   disp.printf("%cC ", (char)247);
 
@@ -95,16 +100,23 @@ void loop() {
   disp.setTextSize(2);
   disp.println();
 
+  disp.setTextSize(1);
+  disp.printf("\n");
+
   disp.setTextSize(2);
-  disp.printf("%6.1f", pressure);
+  disp.printf(" %6.1f", pressure);
   disp.setTextSize(1);
   disp.printf("hPa");
   disp.setTextSize(2);
   disp.printf(" \n");
 
-  disp.printf("----------");
-  disp.printf("%.2fV", vol);
+  disp.setTextSize(1);
+  disp.printf("--------------------\n");
+
+  disp.setTextSize(2);
+  disp.printf(" %4.2fV", vol);
+
   disp.display();
 
-  delay(1000);
+  delay(DELAY_MSEC);
 } // loop()
