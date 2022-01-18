@@ -9,7 +9,7 @@
 #include "NetMgr.h"
 #include "Button.h"
 
-const String VERSION_STR = "V0.1";
+const String VERSION_STR = "V0.2";
 
 const int GET_TEMP_INTERVAL = 5000; // ms
 
