@@ -21,7 +21,7 @@ Adafruit_SSD1306 disp(DISP_W, DISP_H, &Wire, -1);
 // BME280
 const uint8_t I2CADDR_BME280 = 0x76;
 Adafruit_BME280 bme;
-const float TEMP_OFFSET = -0.5;
+const float TEMP_OFFSET = -0.9;
 
 // ADC
 const adc1_channel_t ADC_CH = ADC1_CHANNEL_0; // GPIO36
