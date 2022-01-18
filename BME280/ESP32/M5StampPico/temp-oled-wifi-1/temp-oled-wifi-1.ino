@@ -11,7 +11,8 @@
 
 const String VERSION_STR = "V0.2";
 
-const int GET_TEMP_INTERVAL = 5000; // ms
+const int DISP_INTERVAL = 3000; // ms
+const int GET_TEMP_INTERVAL = 6000; // ms
 
 // OLED
 const uint16_t DISP_W = 128;
@@ -133,7 +134,7 @@ void display(float temp, float hum, float pres, float vol, mode_t netmgr_mode) {
 
   const uint16_t LINE1_X = X3 - 4;
   const uint16_t LINE1_Y = LINE_W + MARGIN1_Y + CH_W * 4 + LINE_W + 5;
-  disp.drawLine(LINE1_X, 0,  LINE1_X, LINE1_Y, WHITE);
+  // disp.drawLine(LINE1_X, 0,  LINE1_X, LINE1_Y, WHITE);
 
   disp.setCursor(X3, Y1);
   disp.setTextSize(4);
@@ -182,13 +183,14 @@ void display(float temp, float hum, float pres, float vol, mode_t netmgr_mode) {
   disp.setTextSize(1);
   disp.printf("%c", PROGRESS_CHR[count]);
 
-  String net_stat = "...";
+  String net_stat;
   if ( netmgr_mode == NetMgr::MODE_WIFI_ON ) {
     net_stat = WiFi.SSID();
   } else if ( netmgr_mode == NetMgr::MODE_AP_LOOP ) {
-    net_stat = "[APmode]";
+    net_stat = "[AP mode]";
+  } else {
+    net_stat = "...";
   }
-
   const uint16_t X_NET = X_PROGRESS + CH_W + 2;
   const uint16_t Y_NET = Y7;
   disp.setCursor(X_NET, Y_NET);
@@ -231,18 +233,21 @@ void setup() {
  */
 void loop() {
   static unsigned long prev_get_ms = 0;
-  unsigned long cur_ms = millis();
-  
-  mode_t netmgr_mode;
+  static unsigned long prev_disp_ms = 0;
   static mode_t prev_netmgr_mode = NetMgr::MODE_NULL;
-
   static float temp, hum, pres, vol;
+  mode_t netmgr_mode;
+  bool disp_force = false;
+  unsigned long cur_ms = millis();
 
   // Button
   if ( btn0.get() ) {
     btn0.print();
     if ( btn0.is_long_pressed() ) {
       Serial.println("reboot ..\n");
+      // display(99.9, 99, 9999, 9.9, prev_netmgr_mode);
+      disp.clearDisplay();
+      disp.display();
       delay(1000);
       ESP.restart();
     }
@@ -251,8 +256,10 @@ void loop() {
   // NetMgr
   netmgr_mode = netMgr.loop();
   if ( netmgr_mode != prev_netmgr_mode ) {
-    Serial.printf("netmgr_mode=0x%02X\n", netmgr_mode);
     prev_netmgr_mode = netmgr_mode;
+
+    Serial.printf("netmgr_mode=0x%02X\n", netmgr_mode);
+    disp_force = true;
   }
 
   // get data (temp, vol, ...)
@@ -278,7 +285,15 @@ void loop() {
   }
   
   // Display
-  display(temp, hum, pres, vol, netmgr_mode);
+  if ( disp_force
+       || cur_ms - prev_disp_ms >= DISP_INTERVAL
+       || prev_disp_ms == 0
+       || cur_ms < prev_disp_ms ) {
+    prev_disp_ms = cur_ms;
+    disp_force = false;
+
+    display(temp, hum, pres, vol, netmgr_mode);
+  }
 
   delayMicroseconds(1);
 } // loop()
