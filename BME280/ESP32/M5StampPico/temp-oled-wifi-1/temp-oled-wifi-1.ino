@@ -6,10 +6,12 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 #include "Adc1.h"
+#include "NetMgr.h"
+#include "Button.h"
 
-const String VERSION_STR = "V0.1.0";
+const String VERSION_STR = "V0.1";
 
-const int DELAY_MSEC = 5000;
+const int GET_TEMP_INTERVAL = 5000; // ms
 
 // OLED
 const uint16_t DISP_W = 128;
@@ -28,6 +30,45 @@ const float ADC_FACTOR = 2.0;
 const adc_atten_t ADC_ATTEN = ADC_ATTEN_DB_11; // 11dB
 const float ADC_V_MAX = 3.5; // <-- ADC_ATTEN_DB_11 (ATTEN_DB_0: 1.0V)
 
+// WiFi
+const String AP_SSID_HDR = "YT_CLOCK";
+const unsigned int WIFI_RETRY_COUNT = 15;
+NetMgr netMgr(AP_SSID_HDR, WIFI_RETRY_COUNT);
+
+// Button
+const uint8_t PIN_BTN0 = 39;
+Button btn0 = Button(PIN_BTN0, "BTN0");
+uint8_t intrPin0 = digitalPinToInterrupt(PIN_BTN0);
+const unsigned long DEBOUNCE = 300; // ms
+
+/**
+ * RTC読込中に 割り込みがかかると落ちることがある
+ * 設定ファイル読込中に 割り込みがかかると落ちることがある
+ */
+void IRAM_ATTR btn_intr_hdr() {
+  static unsigned long prev_ms = 0;
+  unsigned long        cur_ms = millis();
+
+  if ( cur_ms - prev_ms < DEBOUNCE ) {
+    return;
+  }
+  prev_ms = cur_ms;
+}
+
+/**
+ *
+ */
+void enableIntr() {
+  attachInterrupt(intrPin0, btn_intr_hdr, CHANGE);
+}
+
+/**
+ *
+ */
+void disableIntr() {
+  detachInterrupt(intrPin0);
+}
+
 /**
  *
  */
@@ -40,7 +81,7 @@ float adc_get_vol() {
 /**
  *
  */
-void display(float temp, float hum, float pres, float vol) {
+void display(float temp, float hum, float pres, float vol, mode_t netmgr_mode) {
   static int count = 0;
   const String PROGRESS_CHR = "|\x2F-\x5C";
 
@@ -79,7 +120,7 @@ void display(float temp, float hum, float pres, float vol) {
 
   const uint16_t X2 = X1 + CH_W * 4 * 2;
   
-  disp.setCursor(X2 + 1 - 6,
+  disp.setCursor(X2 - 6,
                  Y1 + CH_H * 2 - 2);
   disp.setTextSize(2);
   disp.printf(".%1d", temp2);
@@ -128,19 +169,32 @@ void display(float temp, float hum, float pres, float vol) {
 
   disp.setCursor(X1, Y7);
   disp.setTextSize(1);
-  disp.printf("%.1fV", vol);
+  disp.printf("%.1fv", vol);
 
-  const uint16_t X_VERSION = X1 + CH_W * 14;
+  const uint16_t X_VERSION = DISP_W - CH_W * 4 - 2;
   const uint16_t Y_VERSION = Y7;
   disp.setCursor(X_VERSION, Y_VERSION);
   disp.print(VERSION_STR);
 
-  const uint16_t X_PROGRESS = DISP_W / 2 - CH_W / 2;
+  const uint16_t X_PROGRESS = X1 + CH_W * 4 + 2;
   const uint16_t Y_PROGRESS = Y7;
   disp.setCursor(X_PROGRESS, Y_PROGRESS);
   disp.setTextSize(1);
   disp.printf("%c", PROGRESS_CHR[count]);
 
+  String net_stat = "...";
+  if ( netmgr_mode == NetMgr::MODE_WIFI_ON ) {
+    net_stat = WiFi.SSID();
+  } else if ( netmgr_mode == NetMgr::MODE_AP_LOOP ) {
+    net_stat = "[APmode]";
+  }
+
+  const uint16_t X_NET = X_PROGRESS + CH_W + 2;
+  const uint16_t Y_NET = Y7;
+  disp.setCursor(X_NET, Y_NET);
+  disp.setTextSize(1);
+  disp.printf("%s", net_stat);
+  
   disp.display();
 }
 
@@ -165,30 +219,66 @@ void setup() {
 
   bme.begin(I2CADDR_BME280);
   bme.setSampling(Adafruit_BME280::MODE_FORCED);  // !! IMPORTANT !!
+  //bme.setSampling(Adafruit_BME280::MODE_NORMAL);
 
   adc1 = new Adc1(ADC_CH, ADC_ATTEN, ADC_WIDTH_BIT_9);
+
+  enableIntr();
 } // setup()
 
 /**
  *
  */
 void loop() {
-  /**
-   * get vol
-   */
-  float vol = adc_get_vol();
-  Serial.printf("%.3fV ", vol);
+  static unsigned long prev_get_ms = 0;
+  unsigned long cur_ms = millis();
   
-  /**
-   * get temp, hum, pressure
-   */
-  bme.takeForcedMeasurement();  // !! IMPORTANT !!
-  float temp = bme.readTemperature() + TEMP_OFFSET;
-  float hum = bme.readHumidity();
-  float pressure = bme.readPressure() / 100.0;
-  Serial.printf("%.3f(%.1f) %.2f %0.3f\n", temp, TEMP_OFFSET, hum, pressure);  
+  mode_t netmgr_mode;
+  static mode_t prev_netmgr_mode = NetMgr::MODE_NULL;
 
-  display(temp, hum, pressure, vol);
+  static float temp, hum, pres, vol;
 
-  delay(DELAY_MSEC);
+  // Button
+  if ( btn0.get() ) {
+    btn0.print();
+    if ( btn0.is_long_pressed() ) {
+      Serial.println("reboot ..\n");
+      delay(1000);
+      ESP.restart();
+    }
+  }
+
+  // NetMgr
+  netmgr_mode = netMgr.loop();
+  if ( netmgr_mode != prev_netmgr_mode ) {
+    Serial.printf("netmgr_mode=0x%02X\n", netmgr_mode);
+    prev_netmgr_mode = netmgr_mode;
+  }
+
+  // get data (temp, vol, ...)
+  if ( cur_ms - prev_get_ms >= GET_TEMP_INTERVAL
+       || prev_get_ms == 0
+       || cur_ms < prev_get_ms ) {
+    prev_get_ms = cur_ms;
+    
+    /**
+     * get vol
+     */
+    vol = adc_get_vol();
+  
+    /**
+     * get temp, hum, pressure
+     */
+    bme.takeForcedMeasurement();  // !! IMPORTANT !!
+    temp = bme.readTemperature() + TEMP_OFFSET;
+    hum = bme.readHumidity();
+    pres = bme.readPressure() / 100.0;
+    Serial.printf("%.3fV %.3f(%.1f) %.2f %0.3f\n",
+                  vol, temp, TEMP_OFFSET, hum, pres);
+  }
+  
+  // Display
+  display(temp, hum, pres, vol, netmgr_mode);
+
+  delayMicroseconds(1);
 } // loop()
