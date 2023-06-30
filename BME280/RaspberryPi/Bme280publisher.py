@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 #
-# (c) 2020,2021 Yoichi Tanibayashi
+# (c) 2020,2021,2022,2023 Yoichi Tanibayashi
 #
 __authoer__ = 'Yoichi Tanibayashi'
-__data__    = '2021/08'
-__version__ = '0.1.0'
+__date__    = '2023/06'
+__version__ = '0.2.0'
 
+from Mqtt import MqttPublisher, MqttSubscriber
 from Mqtt import BeebottePublisher, BeebotteSubscriber
 from BME280I2C import BME280I2C
 import time
@@ -16,12 +17,14 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 class App:
     def __init__(self, i2c_addr=0x76, channel='', token='',
+                 mqtt_svr='',
                  interval=2, count=20, ave_n=5, diff_t=0.05, diff_h=1.0,
                  offset_t=0.0, offset_h=0.0, debug=False):
         self._dbg = debug
         self._log = get_logger(__class__.__name__, self._dbg)
         self._log.debug('i2c_addr=%s', i2c_addr)
         self._log.debug('channel=%s, token=%s', channel, token)
+        self._log.debug('mqtt_svr=%s', mqtt_svr)
         self._log.debug('interval=%s, ave_n=%s, count=%s',
                         interval, count, ave_n)
         self._log.debug('diff_t=%s, diff_h=%s', diff_t, diff_h)
@@ -30,6 +33,7 @@ class App:
         self._i2c_addr = i2c_addr
         self._channel = channel
         self._token = token
+        self._mqtt_svr = mqtt_svr
         self._interval = interval
         self._count = count
         self._ave_n = ave_n
@@ -44,9 +48,19 @@ class App:
         self._topic_h = channel + '/humidity'
         self._topic_mon = channel + '/data1'
 
-        self._bbt_pub = BeebottePublisher(self._token, debug=self._dbg)
-        self._bbt_mon = BeebotteSubscriber(self.monitor, [ self._topic_mon ],
-                                           self._token, debug=self._dbg)
+        if self._mqtt_svr == '':
+            self._mqtt_pub = BeebottePublisher(self._token, debug=self._dbg)
+            self._mqtt_mon = BeebotteSubscriber(self.monitor,
+                                                [ self._topic_mon ],
+                                                self._token, debug=self._dbg)
+        else:
+            self._mqtt_pub = MqttPublisher(self._token,
+                                           host=self._mqtt_svr,
+                                           debug=self._dbg)
+            self._mqtt_mon = MqttSubscriber(self.monitor,
+                                            [ self._topic_mon ],
+                                            self._token, host=self._mqtt_svr,
+                                            debug=self._dbg)
 
         self._t_hist = []
         self._h_hist = []
@@ -62,9 +76,9 @@ class App:
         """
         self._log.debug('')
 
-        self._bbt_mon.start()
+        self._mqtt_mon.start()
         time.sleep(1)
-        self._bbt_pub.start()
+        self._mqtt_pub.start()
 
         t = 0
         prev_t = 0
@@ -107,9 +121,9 @@ class App:
                updown_t * prev_updown_t < 0:
 
                 # if ("%.2f" % t) != ("%.2f" % self._reported_t):
-                    self._bbt_pub.send_data(t, [ self._topic_t])
-                    self._bbt_pub.send_data(h, [ self._topic_h])
-                    self._bbt_mon.send_data(mon_data, [ self._topic_mon])
+                    self._mqtt_pub.send_data(t, [ self._topic_t])
+                    self._mqtt_pub.send_data(h, [ self._topic_h])
+                    self._mqtt_mon.send_data(mon_data, [ self._topic_mon])
 
                     self._reported_t = t
                     self._reported_h = h
@@ -124,8 +138,16 @@ class App:
         self._log.debug('')
 
     def monitor(self, data, topic, ts):
-        mon_data = self._bbt_mon.ts2datestr(ts)
-        self._log.info('%s[%s]   %s', mon_data, topic, data)
+
+        # XXX T.B.D.
+        if self._mqtt_svr == '':
+            ts = ts / 1000
+        else:
+            ts = time.time()
+
+        mon_date = time.strftime('%Y/%m/%d,%H:%M:%S',
+                                 time.localtime(ts))
+        self._log.info('%s[%s]   %s', mon_date, topic, data)
 
     def ave(self, list):
         return sum(list) / len(list)
@@ -137,6 +159,8 @@ BME280 ==>[MQTT]==> Beebotte
 @click.argument('i2c_addr', type=str)
 @click.argument('channel', type=str)
 @click.argument('token', type=str)
+@click.option('--mqtt_svr', '--svr', '-s', 'mqtt_svr', type=str, default='',
+              help='MQTT server')
 @click.option('--interval', '-i', 'interval', type=int, default=5,
               help='interval sec')
 @click.option('--count', '-c', 'count', type=int, default=20,
@@ -153,16 +177,21 @@ BME280 ==>[MQTT]==> Beebotte
               help='humidity offset')
 @click.option('--debug', '-d', 'debug', is_flag=True, default=False,
               help='debug options')
-def main(i2c_addr, channel, token, interval, count, ave_n, diff_t, diff_h,
+def main(i2c_addr, channel, token,
+         mqtt_svr,
+         interval, count, ave_n, diff_t, diff_h,
          offset_t, offset_h, debug):
     log = get_logger(__name__, debug=debug)
     log.debug('i2c_addr=%s', i2c_addr)
     log.debug('channel=%s, token=%s', channel, token)
+    log.debug('mqtt_svr=%s', mqtt_svr)
     log.debug('interval=%s, count=%s, ave_n=%s', interval, count, ave_n)
     log.debug('diff_t=%s, diff_h=%s', diff_t, diff_h)
     log.debug('offset_t=%s, offset_h=%s', offset_t, offset_h)
 
-    app = App(int(i2c_addr, 16), channel, token, interval, count, ave_n,
+    app = App(int(i2c_addr, 16), channel, token,
+              mqtt_svr,
+              interval, count, ave_n,
               diff_t, diff_h, offset_t, offset_h, debug=debug)
     try:
         app.main()
